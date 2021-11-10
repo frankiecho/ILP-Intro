@@ -1,4 +1,4 @@
-# ILP-Intro
+# Introduction to Integer Linear Programming
 Skills training material for an introduction to Integer Linear Programming with R &amp; Gurobi
 
 This repository contains material for a one-hour skills training session on using Gurobi with R to solve Integer Linear Programming problems, with a special emphasis on spatial conservation planning problems.
