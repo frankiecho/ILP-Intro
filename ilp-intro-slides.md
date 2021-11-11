@@ -12,14 +12,14 @@ Integer Linear Programming for Systematic Conservation Planning
 author: Frankie Cho
 date: 12 November 2021
 autosize: true
-Sustainable Landscapes Group, University of Queensland
+Sustainable Landscapes Group, UQ
 
 What this skills training will be about
 ========================================================
 - What are ILPs?
-- Reading the math formulae of a typical ILP
+- Reading the math formulae of an ILP
 - Setting up and solving the ILP in Gurobi
-- Performance gains through integer relaxation
+- Integer constraints
 - Facilitating connectivity
 
 What are Linear Programs?
@@ -33,8 +33,9 @@ Applications of LP/ ILP
 ========================================================
 - Conservation decision making
 - Transportation/ facility location problems
-- Design markets (e.g. find fixed-price payments for ecosystem services)
-- Simulate auction outcomes
+- Network flow and optimization
+- Scheduling
+- Design markets (e.g. auctions, fixed-price payments)
 
 Why do we need Linear Programs?
 ========================================================
@@ -61,16 +62,16 @@ kable(data.frame(N, Combinations))
 |  100|  2.425193e+23|
 | 1000| 4.822840e+242|
 
-How to search through these options efficiently?
+How to search through these combinations efficiently?
 
-Why I love working directly with ILP with Gurobi?
+Why Linear Programming?
 ========================================================
 Compared to simulated annealing based methods ILP offers:
 - Known solution quality (known gap to optimality)
-- Better performance
+- Shorter computation time
 - Cross-disciplinary: immediately benefit from latest models/ software in operations research & maths instead of waiting for it to "trickle-down" to your domain
 
-What do we need to run an LP?
+What data do we need?
 ========================================================
 a) Data for the objective function
 
@@ -98,9 +99,8 @@ Possible ILP formulations
 Code example: cost minimization problem
 ========================================================
 
-- Minimizing the cost of protecting both species
-- Objective: Minimize total cost
-- Constraint: Protect 25% of the population present in this habitat
+- Objective: Minimize total cost of conservation
+- Constraint: Protect 25% of the population present in this habitat (goal)
 
 Code example: cost minimization problem
 ========================================================
@@ -144,17 +144,15 @@ We need to find **data** variables and **decision** variables
 2. Linear constraints
 3. Bound constraints
 
-
-
 Components of the problem
 ========================================================
 title: false
 ### Our problem
-$N=400$: 400 possible locations to choose from
+$N= 2500$: 2500` possible locations to choose from
 
 $K=2$: two species we are concerned about
 
-### Data we supply to the problem
+### Data we give to the problem
 $\mathbf{c} = [c_1, c_2, ..., c_N]$ : vector of length N, costs of setting up a reserve at each location
 
 $\mathbf{r}_k = [r_{1k}, r_{2k}, ..., r_{Nk}]$ : vector of length N, number of the species $k$ in each location -- we have $K$ number of these vectors
@@ -173,7 +171,7 @@ In an LP/ ILP/ MILP, a decision variable cannot be multiplied with another decis
 
 e.g. $x_ix_j$ is not feasible in the LP -- if two decision variables are multiplied together, then the problem will be a quadratic program (QP) -- computationally intensive
 
-Beyer et al. (2016) overcomes this problem by 'linearizing' the problem -- using other constraints to avoid multiplication of two decision variables
+Beyer et al. (2016) overcomes this problem with 'linearization' -- using another integer variable to represent binary variables multiplied together
 
 Data variables can multiply with other data variables. Multiplication occurs before the problem is solved.
 
@@ -188,11 +186,11 @@ $x_i \in [0,1]$ : $x_i$ is **between** 0 and 1; can be non-integer;
 same as: $0 \leq x_i \leq 1$
 
 ### Integers
+$x_i \in \{0,1\}$ : $x_i$ is **either** 0 or 1 (i.e. integer)
+
 $x_i \in \mathbb{Z}$: $x_i$ must be an integer
 
 $x_i \in \mathbb{Z}^+$: $x_i$ must be a positive integer
-
-$x_i \in \{0,1\}$ : $x_i$ is **either** 0 or 1 (i.e. integer)
 
 Why bother with matrix notation??
 ========================================================
@@ -242,6 +240,31 @@ T_2
 \end{bmatrix}
 $$
 
+From matrices to Gurobi
+========================================================
+class: small-code
+title: false
+
+`result <- gurobi(model, params)`
+
+## Input
+
+`model$obj` : $\mathbf{c}$ 
+
+`model$A` : $\mathbf{A}$
+
+`model$rhs` : $\mathbf{b}$
+
+`model$modelsense` : $\min$
+
+`model$sense` : $<$
+
+## Output
+
+`result$x` : $\mathbf{x}$
+
+`result$objval` : $\mathbf{c'x}$
+
 Equivalent formulations side-by-side
 ========================================================
 title: false
@@ -249,13 +272,10 @@ $$ \min_\mathbf{x} \sum^N_{i=1} c_i x_i \: (1) $$
 $$ s.t. \sum_{i=1}^N r_{ik} x_i \geq T_k, \forall k \in K \: (2) $$
 $$ x_i \in \{0,1\} \: (3) $$
 
-
-
 Equivalent matrix formulation:
 $$ \min_\mathbf{x} \mathbf{c'x}\: (1) $$
 $$ s.t. \mathbf{r}_k' \mathbf{x} \geq T_k, \forall k \in K \: (2) $$
 $$ \mathbf{x} \in \{0,1\} \: (3) $$
-
 
 Solve the problem
 ========================================================
@@ -286,17 +306,17 @@ Improving the model?
 Integer LP? Mixed-Integer LP?
 ========================================================
 - LP allows for non-integer decision variable
-- ILP: integers present in the decision vector
-- MILP: both integers and non-integers in the decision vector
+- ILP: all decision variables are constrained to be integers (NP-hard)
+- MILP: some decision variables continuous, others constrained to be integers
 - Mixed-Integer LP most common in LP
-- Does your problem require integers?
+- Why does your problem need integer constraints?
 - Effect on performance
 
 Improving performance: are integer constraints necessary for your problem?
 ========================================================
 class: small-code
 
-For a set of problems, relaxing to continuous bounded constraints could significantly lower computation time for large problems -- with minimal effect on the final solution
+LP solves much quicker than ILP/ MILP because it takes advantages of more efficient algorithms. 
 
 
 ```r
@@ -321,7 +341,7 @@ integer_time
 ```
 
 ```
-Time difference of 0.0181179 secs
+Time difference of 0.01822996 secs
 ```
 
 ```r
@@ -329,7 +349,7 @@ cont_time
 ```
 
 ```
-Time difference of 0.006998062 secs
+Time difference of 0.006899118 secs
 ```
 
 Integer relaxation -- results
@@ -337,10 +357,11 @@ Integer relaxation -- results
 title: false
 class: small-code
 
-Investigate whether integer-relaxation of your problem make sense
+Some LP will lead to integer results even when integer constraints are not explicitly imposed. Investigate why integer constraints are needed for your problem.
 
 ```r
-plotXCont <- plotSpatialGrid(matrix(non_integer_result$x, ncol = ny, nrow = nx), 'Decision (continuous constraints)', 'viridis')
+plotXInt <- plotSpatialGrid(matrix(integer_result$x, ncol = ny, nrow = nx), 'Decision (integer)', 'viridis')
+plotXCont <- plotSpatialGrid(matrix(non_integer_result$x, ncol = ny, nrow = nx), 'Decision (continuous)', 'viridis')
 ggarrange(plotX, plotXCont, nrow=1);
 ```
 
@@ -471,21 +492,7 @@ That's a wrap!
 - Hopefully you will have picked up some idea about how an ILP works!
 - Share any thoughts or experiences you have on this topic!
 
-Appendix 1
-========================================================
-Experiments ran with the following specifications:
-$$ \min_\mathbf{x} \sum^N_{i=1} c_i x_i $$
-
-$$ s.t. \sum_{i=1}^N r_{ik} x_i \geq T_k, \forall k \in K $$
-$$ x_i \in \{0,1\} $$
-
-Underlying data:
-$$ \mathbf{c} \sim N(WF,I_N) $$
-$$ \mathbf{r}_1 \sim Pois(WG*1) $$
-$$ \mathbf{r}_2 \sim Pois(WG*2) $$
-
-
-Appendix 2 - Alternative formulation: a goal maximization problem
+Appendix 1 - Alternative formulation: a goal maximization problem
 ========================================================
 $$
 \min_\mathbf{x} \sum_{i=1}^N \sum_{k\in K} r_{ik}x_i \\
