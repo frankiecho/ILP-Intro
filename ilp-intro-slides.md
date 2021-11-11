@@ -1,3 +1,8 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
 <style>
 .small-code pre code {
   font-size: .8em;
