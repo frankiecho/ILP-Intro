@@ -1,8 +1,3 @@
----
-output:
-  pdf_document: default
-  html_document: default
----
 <style>
 .small-code pre code {
   font-size: .8em;
@@ -12,12 +7,12 @@ body {
 }
 </style>
 
-Integer Linear Programming for Systematic Conservation Planning
+Integer Linear Programming for Spatial Conservation Planning
 ========================================================
 author: Frankie Cho
-date: 12 November 2021
+date: 15 August 2022
 autosize: true
-Sustainable Landscapes Group, UQ
+UQ CBCS
 
 What this skills training will be about
 ========================================================
@@ -55,7 +50,7 @@ source('ilp-intro-functions.R')
 N <- c(20,80,100,1000)
 nchoosek <- function(n) choose(n, n/4)
 Combinations <- sapply(N, nchoosek)
-kable(data.frame(N, Combinations))
+knitr::kable(data.frame(N, Combinations))
 ```
 
 
@@ -73,7 +68,7 @@ Why Linear Programming?
 ========================================================
 Compared to simulated annealing based methods ILP offers:
 - Known solution quality (known gap to optimality)
-- Shorter computation time
+- (Generally) shorter computation time
 - Cross-disciplinary: immediately benefit from latest models/ software in operations research & maths instead of waiting for it to "trickle-down" to your domain
 
 What data do we need?
@@ -112,10 +107,6 @@ Code example: cost minimization problem
 class: small-code
 
 ```r
-library(ggplot2)
-library(reshape2)
-library(ggpubr)
-
 set.seed(123)
 nx <- 50
 ny <- 50
@@ -287,15 +278,15 @@ Solve the problem
 class: small-code
 
 ```r
-library(gurobi)
 model <- list()
 model$obj <- as.vector(c)
 model$modelsense <- 'min'
 model$A   <- matrix(c(as.vector(r1), as.vector(r2)), nrow = 2, byrow = T)
 model$rhs <- c(0.25*sum(r1),0.25*sum(r2))
-model$sense <- '>'
+model$sense <- '>='
 model$vtype <- 'B'
-result <- gurobi(model, list())
+# result <- gurobi(model, list())
+result <- rsymphony_solve_gurobi(model, list())
 
 plotX <- plotSpatialGrid(matrix(result$x, ncol = ny, nrow = nx), 'Decision', 'viridis')
 ggarrange(plotC, plotR1, plotR2, plotX, nrow = 1)
@@ -326,7 +317,7 @@ LP solves much quicker than ILP/ MILP because it takes advantages of more effici
 
 ```r
 start_time_integer <- Sys.time()
-integer_result <- gurobi(model, list())
+integer_result <- rsymphony_solve_gurobi(model, list())
 end_time_integer <- Sys.time()
 
 model_cont <- model
@@ -334,7 +325,7 @@ model_cont$vtype <- 'C'
 model_cont$lb    <- rep(0,nx*ny)
 model_cont$ub    <- rep(1,nx*ny)
 start_time_cont <- Sys.time()
-non_integer_result <- gurobi(model_cont, list())
+non_integer_result <- rsymphony_solve_gurobi(model_cont, list())
 end_time_cont <- Sys.time()
 
 integer_time <- end_time_integer - start_time_integer
@@ -346,7 +337,7 @@ integer_time
 ```
 
 ```
-Time difference of 0.01822996 secs
+Time difference of 5.439219 secs
 ```
 
 ```r
@@ -354,7 +345,7 @@ cont_time
 ```
 
 ```
-Time difference of 0.006899118 secs
+Time difference of 0.01956892 secs
 ```
 
 Integer relaxation -- results
@@ -375,7 +366,9 @@ ggarrange(plotX, plotXCont, nrow=1);
 Spatial connectivity
 ========================================================
 - Even though species distribution and costs are spatially correlated, the sites selected weren't
+- Minimum viable habitat for species? Minimum area needed for management actions?
 - Penalties for spatial fragmentation?
+
 
 Rewarding spatially-connected solutions in the objective
 ========================================================
@@ -410,7 +403,6 @@ class: small-code
 Possible to alter the spatial connectivity in result through a linearised objective
 
 
-
 ```r
 W <- spatialWeightsMatrix(nx, ny, rowStandardise = FALSE)
 W[lower.tri(W)] <- 0 # Set it as a upper triangular matrix
@@ -420,7 +412,7 @@ A_r1 <- c(as.vector(r1), rep(0, num_neighbours))
 A_r2 <- c(as.vector(r2), rep(0, num_neighbours))
 A_E <- matrix(0, nrow = num_neighbours*3, ncol = length(r1)+num_neighbours)
 bVector <- c(0.25*sum(r1),0.25*sum(r2))
-senseVector <- c('>','>')
+senseVector <- c('>=','>=')
 # Loop through all the elements in the set of neighbours
 for (s in 1:nrow(E)) {
   # Given three constraints:
@@ -431,24 +423,23 @@ for (s in 1:nrow(E)) {
   A_E[row,E[s,1]] <- c(-1, 0, -1) # Coefficients for x_i
   A_E[row,E[s,2]] <- c( 0,-1, -1) # Coefficients for x_j
   A_E[row,s+(nx*ny)]         <- c(1, 1, 1) # Coefficients for z_ij are all 1
-  senseVector <- c(senseVector, '<', '<', '>') # Inequality constraints
+  senseVector <- c(senseVector, '<=', '<=', '>=') # Inequality constraints
   bVector <- c(bVector, 0,0,-1) # RHS of the equation
 }
 
 model_connectivity <- list()
-
 model_connectivity$modelsense <- 'min'
 model_connectivity$A   <- rbind(A_r1, A_r2, A_E)
 model_connectivity$rhs <- bVector
 model_connectivity$sense <- senseVector
 model_connectivity$vtype <- 'B'
 
-b <- c(0,0.1,0.2,0.3,0.4)
+b <- seq(0,0.5,0.1)
 result_connectivity <- list()
 ## Loop through all 5 selections of b
 for (i in 1:length(b)) {
   model_connectivity$obj <- c(as.vector(c), rep(-b[i], num_neighbours))
-  result_connectivity[[i]] <- gurobi(model_connectivity, list())  
+  result_connectivity[[i]] <- rsymphony_solve_gurobi(model_connectivity, list())  
 }
 ```
 Results
@@ -482,12 +473,12 @@ for (i in 1:length(b)) {
   efficiencyFrontier[i,3] <- sum(z_ij)
 }
 ggplot(efficiencyFrontier,aes(y = -cost, x = connectivity, label = paste('b = ',b))) +
+  geom_smooth(method = 'glm', se=F, formula = y ~ poly(x,3)) +
   geom_point() +
-  geom_line() +
-  geom_text(vjust = 0, nudge_y = 0.5) +
-  scale_y_continuous('Negative Cost')+
+  geom_text(vjust = 0, nudge_y = 1) +
+  scale_y_continuous('Cost (negative)')+
   scale_x_continuous('Connectivity')+
-  ggpubr::theme_pubr()
+  theme_bw()
 ```
 
 ![plot of chunk unnamed-chunk-9](ilp-intro-slides-figure/unnamed-chunk-9-1.png)
@@ -505,3 +496,61 @@ s.t. \sum_{i=1}^N c_i x_i \leq B \\
 x_i \in \{0,1\}
 $$
 
+
+Setting a minimum area target
+========================================================
+Ensures that if $x_a$ is selected, $n$ number of its neighbours are also selected
+$$
+\min_{\mathbf{x}} \sum_{i=1}^N c_ix_i \\
+s.t. \sum^{m}_{i=1}x_i \geq nx_a
+$$
+
+Appendix 2. Setting up the problem with a spatial neighbour matrix
+========================================================
+
+```r
+W <- spatialWeightsMatrix(nx, ny, rowStandardise = FALSE)
+constraintMatrixNeighbour <- function(W, n) {
+  A <- matrix(0, nrow = nrow(W), ncol = nrow(W))
+  for (i in 1:nrow(W)) {
+    # Initialise vector of zeros corresponding to the length of the decision vector (for that row of constraint)
+    aj <- W[,i]
+    # Set the number of neighbours for i
+    aj[i] <- -n
+    # Set the matrix back to A
+    A[,i] <- aj
+  }
+  A
+}
+
+model_neighbour <- model
+model_neighbour$modelsense <- 'min'
+model_neighbour$sense <- ">="
+model_neighbour$vtype <- 'B'
+
+neighbours <- c(0,1,2,3)
+result_neighbour <- list()
+## Loop through all 5 selections of b
+for (i in 1:length(neighbours)) {
+  model_neighbour$A <- rbind(model$A, constraintMatrixNeighbour(W, neighbours[i]))
+  model_neighbour$rhs <- c(model$rhs, rep(0, nx*ny))
+  result_neighbour[[i]] <- rsymphony_solve_gurobi(model_neighbour, list())  
+}
+```
+
+Results
+========================================================
+class: small-code
+
+```r
+plot_neighbour = list()
+for (i in 1:length(neighbours)) {
+  plot_neighbour[[i]] <- plotSpatialGrid(matrix(
+    result_neighbour[[i]]$x[1:(nx*ny)], ncol = ny, nrow = nx), 
+    paste("n = ", as.character(neighbours[i])))
+}
+
+ggarrange(plotlist = plot_neighbour, nrow = 1)
+```
+
+![plot of chunk unnamed-chunk-11](ilp-intro-slides-figure/unnamed-chunk-11-1.png)
