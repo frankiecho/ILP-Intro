@@ -49,6 +49,15 @@ correlatedSpatialGrid <- function(g, nx, ny) {
   return(W %*% runif(nx*ny) * g)
 }
 
+solve_ilp <- function(model, params, solver = "Rsymphony") {
+  if (solver == 'Gurobi') {
+    solution <- gurobi(model, params)
+  } else {
+    solution <- rsymphony_solve_gurobi(model, params)
+  }
+  solution
+}
+
 rsymphony_solve_gurobi <- function(model, params) {
   if ((length(model$sense) == 1) & (length(model$sense) != length(model$rhs))) {
     model$sense <- rep(model$sense, length(model$rhs))

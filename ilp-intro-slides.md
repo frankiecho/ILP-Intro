@@ -286,7 +286,7 @@ model$rhs <- c(0.25*sum(r1),0.25*sum(r2))
 model$sense <- '>='
 model$vtype <- 'B'
 # result <- gurobi(model, list())
-result <- rsymphony_solve_gurobi(model, list())
+result <- solve_ilp(model, list(), solver = 'Rsymphony')
 
 plotX <- plotSpatialGrid(matrix(result$x, ncol = ny, nrow = nx), 'Decision', 'viridis')
 ggarrange(plotC, plotR1, plotR2, plotX, nrow = 1)
@@ -317,7 +317,7 @@ LP solves much quicker than ILP/ MILP because it takes advantages of more effici
 
 ```r
 start_time_integer <- Sys.time()
-integer_result <- rsymphony_solve_gurobi(model, list())
+integer_result <- solve_ilp(model, list())
 end_time_integer <- Sys.time()
 
 model_cont <- model
@@ -325,7 +325,7 @@ model_cont$vtype <- 'C'
 model_cont$lb    <- rep(0,nx*ny)
 model_cont$ub    <- rep(1,nx*ny)
 start_time_cont <- Sys.time()
-non_integer_result <- rsymphony_solve_gurobi(model_cont, list())
+non_integer_result <- solve_ilp(model_cont, list(), solver = 'Rsymphony')
 end_time_cont <- Sys.time()
 
 integer_time <- end_time_integer - start_time_integer
@@ -337,7 +337,7 @@ integer_time
 ```
 
 ```
-Time difference of 5.439219 secs
+Time difference of 5.458391 secs
 ```
 
 ```r
@@ -345,7 +345,7 @@ cont_time
 ```
 
 ```
-Time difference of 0.01956892 secs
+Time difference of 0.01749992 secs
 ```
 
 Integer relaxation -- results
@@ -439,7 +439,7 @@ result_connectivity <- list()
 ## Loop through all 5 selections of b
 for (i in 1:length(b)) {
   model_connectivity$obj <- c(as.vector(c), rep(-b[i], num_neighbours))
-  result_connectivity[[i]] <- rsymphony_solve_gurobi(model_connectivity, list())  
+  result_connectivity[[i]] <- solve_ilp(model_connectivity, list(), solver = 'Rsymphony')  
 }
 ```
 Results
@@ -534,7 +534,7 @@ result_neighbour <- list()
 for (i in 1:length(neighbours)) {
   model_neighbour$A <- rbind(model$A, constraintMatrixNeighbour(W, neighbours[i]))
   model_neighbour$rhs <- c(model$rhs, rep(0, nx*ny))
-  result_neighbour[[i]] <- rsymphony_solve_gurobi(model_neighbour, list())  
+  result_neighbour[[i]] <- solve_ilp(model_neighbour, list(), solver = 'Rsymphony')  
 }
 ```
 
